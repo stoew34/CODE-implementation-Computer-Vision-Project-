@@ -12,14 +12,14 @@ FeatureDetector::FeatureDetector(const CodeParameters& params)
     sift_detector_ = cv::SIFT::create();
 }
 
-std::vector<cv::Mat> FeatureDetector::generateAffineTransforms() {
-    std::vector<cv::Mat> transforms;
+vector<cv::Mat> FeatureDetector::generateAffineTransforms() {
+    vector<cv::Mat> transforms;
     
     // Identity transform
     transforms.push_back(cv::Mat::eye(2, 3, CV_32F));
     
     // Generate tilts and rotations for A-SIFT simulation
-    const std::vector<float> tilts = {1.0f, 1.5f, 2.0f, 3.0f};
+    const vector<float> tilts = {1.0f, 1.5f, 2.0f, 3.0f};
     const int num_rotations = 72; // 5-degree increments
     
     for (float tilt : tilts) {
@@ -32,10 +32,10 @@ std::vector<cv::Mat> FeatureDetector::generateAffineTransforms() {
             
             // Create affine matrix: rotation then tilt
             cv::Mat A = cv::Mat::eye(2, 3, CV_32F);
-            A.at<float>(0, 0) = tilt * std::cos(rad);
-            A.at<float>(0, 1) = -tilt * std::sin(rad);
-            A.at<float>(1, 0) = std::sin(rad);
-            A.at<float>(1, 1) = std::cos(rad);
+            A.at<float>(0, 0) = tilt * cos(rad);
+            A.at<float>(0, 1) = -tilt * sin(rad);
+            A.at<float>(1, 0) = sin(rad);
+            A.at<float>(1, 1) = cos(rad);
             
             transforms.push_back(A);
             
@@ -48,12 +48,12 @@ std::vector<cv::Mat> FeatureDetector::generateAffineTransforms() {
 
 void FeatureDetector::detectUnderTransform(const cv::Mat& image,
                                           const cv::Mat& transform,
-                                          std::vector<cv::KeyPoint>& keypoints,
+                                          vector<cv::KeyPoint>& keypoints,
                                           cv::Mat& descriptors) {
     cv::Mat warped;
     cv::warpAffine(image, warped, transform, image.size());
     
-    std::vector<cv::KeyPoint> kpts;
+    vector<cv::KeyPoint> kpts;
     cv::Mat desc;
     sift_detector_->detectAndCompute(warped, cv::noArray(), kpts, desc);
     
@@ -73,7 +73,7 @@ void FeatureDetector::detectUnderTransform(const cv::Mat& image,
 }
 
 void FeatureDetector::detectAndCompute(const cv::Mat& image,
-                                      std::vector<cv::KeyPoint>& keypoints,
+                                      vector<cv::KeyPoint>& keypoints,
                                       cv::Mat& descriptors) {
     keypoints.clear();
     descriptors = cv::Mat();
@@ -85,7 +85,7 @@ void FeatureDetector::detectAndCompute(const cv::Mat& image,
     }
     
     cout << "Detected " << keypoints.size() << " features under " 
-              << transforms.size() << " affine transformations" << std::endl;
+              << transforms.size() << " affine transformations" << endl;
 }
 
 }
