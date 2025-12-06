@@ -179,24 +179,23 @@ namespace code {
         std::vector<bool> inliers(points.size(), false);
         std::vector<double> all_residuals;
 
-        // Debug first few points
-        int debug_count = std::min(5, (int)points.size());
-        for (int i = 0; i < debug_count; i++) {
-            logInfo("DEBUG Point " + std::to_string(i) + ": x=" + std::to_string(points[i].x) +
-                    ", y=" + std::to_string(points[i].y) + ", u=" + std::to_string(points[i].u) +
-                    ", v=" + std::to_string(points[i].v));
-        }
-
         for (size_t i = 0; i < points.size(); ++i) {
             double residual = computeSpatialResidual(points[i], models, centroids);
             all_residuals.push_back(residual);
-            inliers[i] = (residual < config_.spatial_threshold);
 
-            // Debug first few residuals
-            if (i < 5) {
-                logInfo("DEBUG Residual " + std::to_string(i) + ": " + std::to_string(residual) +
-                        " (threshold=" + std::to_string(config_.spatial_threshold) + ")");
-            }
+            // Apply spatial threshold
+            bool passes_threshold = (residual < config_.spatial_threshold);
+
+            // Additional check: verify prediction magnitude is reasonable
+            // For identity or small transformations, prediction shouldn't be too far
+            double pred_x = evaluateAffineX(points[i], models, centroids);
+            double pred_y = evaluateAffineY(points[i], models, centroids);
+            double pred_magnitude = std::sqrt(pred_x * pred_x + pred_y * pred_y);
+
+            // In normalized space, reasonable predictions should be < 5.0
+            bool reasonable_magnitude = (pred_magnitude < 5.0);
+
+            inliers[i] = passes_threshold && reasonable_magnitude;
         }
 
         // Debug: print residual statistics

@@ -182,6 +182,10 @@ namespace code {
 
         logInfo("Step5: After combining filters: " + std::to_string(final_matches.size()));
 
+        // Apply geometric verification (RANSAC with fundamental matrix)
+        final_matches = applyGeometricVerification(final_matches);
+        logInfo("Step5: After geometric verification: " + std::to_string(final_matches.size()));
+
         return final_matches;
     }
 
@@ -196,6 +200,75 @@ namespace code {
         }
 
         return points;
+    }
+
+    std::vector<FeatureMatch> CodePipeline::applyGeometricVerification(
+        const std::vector<FeatureMatch>& matches) {
+
+        if (matches.size() < 8) {  // Need at least 8 points for fundamental matrix
+            return matches;
+        }
+
+        // Extract point correspondences
+        std::vector<cv::Point2f> pts1, pts2;
+        pts1.reserve(matches.size());
+        pts2.reserve(matches.size());
+
+        for (const auto& match : matches) {
+            pts1.push_back(cv::Point2f(match.kp1.pt.x, match.kp1.pt.y));
+            pts2.push_back(cv::Point2f(match.kp2.pt.x, match.kp2.pt.y));
+        }
+
+        // Use RANSAC to find fundamental matrix and filter outliers
+        // Balanced threshold for quality matches
+        std::vector<uchar> inlier_mask;
+        cv::Mat F = cv::findFundamentalMat(pts1, pts2, cv::FM_RANSAC, 1.5, 0.999, inlier_mask);
+
+        if (F.empty() || inlier_mask.empty()) {
+            return matches;  // Return original if RANSAC fails
+        }
+
+        // Filter matches based on inlier mask + additional epipolar constraint verification
+        std::vector<FeatureMatch> verified_matches;
+        verified_matches.reserve(matches.size());
+
+        for (size_t i = 0; i < matches.size(); ++i) {
+            if (inlier_mask[i]) {
+                // Additional verification: compute epipolar error explicitly
+                cv::Mat pt1 = (cv::Mat_<double>(3, 1) << pts1[i].x, pts1[i].y, 1.0);
+                cv::Mat pt2 = (cv::Mat_<double>(3, 1) << pts2[i].x, pts2[i].y, 1.0);
+
+                // Epipolar constraint: pt2^T * F * pt1 = 0
+                cv::Mat error = pt2.t() * F * pt1;
+                double epipolar_error = std::abs(error.at<double>(0, 0));
+
+                // Stricter epipolar error for precision (< 1.5 pixels)
+                if (epipolar_error < 1.5) {
+                    // Additional check: verify scale and orientation consistency
+                    const auto& m = matches[i];
+                    float scale_ratio = m.kp2.size / (m.kp1.size + 1e-6f);
+                    float angle_diff = std::abs(m.kp2.angle - m.kp1.angle);
+                    if (angle_diff > 180.0f) angle_diff = 360.0f - angle_diff;
+
+                    // Balanced constraints: moderate scale (0.4x to 2.5x) and rotation (< 100 degrees)
+                    bool reasonable_scale = (scale_ratio > 0.4f && scale_ratio < 2.5f);
+                    bool reasonable_angle = (angle_diff < 100.0f);
+
+                    if (reasonable_scale && reasonable_angle) {
+                        verified_matches.push_back(matches[i]);
+                    }
+                }
+            }
+        }
+
+        int num_outliers = matches.size() - verified_matches.size();
+        if (num_outliers > 0) {
+            logInfo("Geometric verification removed " + std::to_string(num_outliers) +
+                    " outliers (" + std::to_string(verified_matches.size()) + "/" +
+                    std::to_string(matches.size()) + " kept)");
+        }
+
+        return verified_matches;
     }
 
 } // namespace code

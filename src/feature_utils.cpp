@@ -1,10 +1,14 @@
 #include "feature_utils.h"
+#include <numeric>
+#include <algorithm>
 
 namespace code {
 
     FeatureUtils::FeatureUtils(const Config& config) : config_(config) {
-        detector_ = cv::SIFT::create(config_.max_features,
-            3,  // nOctaveLayers
+        // Create SIFT with optimized parameters for better quality
+        detector_ = cv::SIFT::create(
+            config_.max_features * 2,  // Detect more, filter later
+            4,  // More octave layers for better scale detection
             config_.contrast_threshold,
             config_.edge_threshold,
             config_.sigma);
@@ -17,10 +21,28 @@ namespace code {
         cv::Mat& descriptors) {
         detector_->detectAndCompute(image, cv::noArray(), keypoints, descriptors);
 
-        // Limit features if necessary
+        // Sort by response (feature strength) and keep the best
         if (keypoints.size() > static_cast<size_t>(config_.max_features)) {
-            keypoints.resize(config_.max_features);
-            descriptors = descriptors.rowRange(0, config_.max_features);
+            // Create indices sorted by response (descending)
+            std::vector<size_t> indices(keypoints.size());
+            std::iota(indices.begin(), indices.end(), 0);
+            std::sort(indices.begin(), indices.end(),
+                [&keypoints](size_t a, size_t b) {
+                    return keypoints[a].response > keypoints[b].response;
+                });
+
+            // Keep only the strongest features
+            std::vector<cv::KeyPoint> filtered_kpts;
+            cv::Mat filtered_desc;
+            filtered_kpts.reserve(config_.max_features);
+
+            for (size_t i = 0; i < static_cast<size_t>(config_.max_features); ++i) {
+                filtered_kpts.push_back(keypoints[indices[i]]);
+                filtered_desc.push_back(descriptors.row(indices[i]));
+            }
+
+            keypoints = std::move(filtered_kpts);
+            descriptors = filtered_desc;
         }
     }
 
@@ -47,20 +69,35 @@ namespace code {
         for (size_t i = 0; i < knn_matches_forward.size(); ++i) {
             if (knn_matches_forward[i].size() < 2) continue;
 
-            // Lowe's ratio test
-            if (knn_matches_forward[i][0].distance < ratio_threshold * knn_matches_forward[i][1].distance) {
-                cv::DMatch forward_match = knn_matches_forward[i][0];
+            cv::DMatch forward_best = knn_matches_forward[i][0];
+            cv::DMatch forward_second = knn_matches_forward[i][1];
 
+            // Lowe's ratio test with adaptive threshold
+            // For very distinctive features, be more strict
+            double adaptive_ratio = ratio_threshold;
+            if (forward_best.distance < 50.0) {  // Very good match
+                adaptive_ratio = std::min(ratio_threshold, 0.75f);
+            }
+
+            if (forward_best.distance < adaptive_ratio * forward_second.distance) {
                 // Cross-check: verify backward match agrees
-                int train_idx = forward_match.trainIdx;
+                int train_idx = forward_best.trainIdx;
                 if (train_idx < static_cast<int>(knn_matches_backward.size()) &&
                     knn_matches_backward[train_idx].size() > 0) {
 
                     cv::DMatch backward_match = knn_matches_backward[train_idx][0];
 
                     // If backward match points back to the same query point, it's consistent
-                    if (backward_match.trainIdx == forward_match.queryIdx) {
-                        good_matches.push_back(forward_match);
+                    if (backward_match.trainIdx == forward_best.queryIdx) {
+                        // Additional check: backward ratio test
+                        if (knn_matches_backward[train_idx].size() >= 2) {
+                            cv::DMatch backward_second = knn_matches_backward[train_idx][1];
+                            if (backward_match.distance < ratio_threshold * backward_second.distance) {
+                                good_matches.push_back(forward_best);
+                            }
+                        } else {
+                            good_matches.push_back(forward_best);
+                        }
                     }
                 }
             }

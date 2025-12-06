@@ -58,6 +58,10 @@ namespace code {
         // Helper functions
         std::vector<BilateralPoint8D> extractBilateralPoints(
             const std::vector<FeatureMatch>& matches);
+
+        // Geometric verification using fundamental matrix + RANSAC
+        std::vector<FeatureMatch> applyGeometricVerification(
+            const std::vector<FeatureMatch>& matches);
     };
 
 } // namespace code
