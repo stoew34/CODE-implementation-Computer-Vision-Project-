@@ -5,6 +5,13 @@
 
 namespace code {
 
+    // Normalization parameters for bilateral points
+    struct NormalizationParams {
+        double mean_x = 0.0;
+        double mean_y = 0.0;
+        double scale = 1.0;
+    };
+
     class FeatureUtils {
     public:
         explicit FeatureUtils(const Config& config);
@@ -26,8 +33,12 @@ namespace code {
             const std::vector<cv::KeyPoint>& kpts2,
             const std::vector<cv::DMatch>& matches);
 
-        // Apply Hartley normalization (mentioned in Sec 3.2)
-        void normalizeBilateralPoints(std::vector<BilateralPoint8D>& points);
+        // Apply Hartley normalization and return parameters
+        NormalizationParams normalizeBilateralPoints(std::vector<BilateralPoint8D>& points);
+
+        // Apply existing normalization parameters to new points
+        void applyNormalization(std::vector<BilateralPoint8D>& points,
+                                 const NormalizationParams& params);
 
     private:
         Config config_;

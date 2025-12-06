@@ -24,24 +24,46 @@ namespace code {
             // Assign points to nearest centroids
             assignToCentroids(points, centroids, assignments);
 
-            // Update centroids
-            std::vector<BilateralPoint8D> new_centroids(config_.num_clusters);
+            // Update centroids - compute mean of each cluster
+            std::vector<BilateralPoint8D> sum_centroids(config_.num_clusters);
             std::vector<int> counts(config_.num_clusters, 0);
 
+            // Initialize sums to zero
+            for (int i = 0; i < config_.num_clusters; ++i) {
+                sum_centroids[i] = BilateralPoint8D();
+            }
+
+            // Accumulate sums
             for (size_t i = 0; i < points.size(); ++i) {
                 int cluster = assignments[i];
-                if (cluster >= 0) {
-                    // For simplicity, we'll just copy (should average)
-                    new_centroids[cluster] = points[i];
+                if (cluster >= 0 && cluster < config_.num_clusters) {
+                    const auto& p = points[i];
+                    sum_centroids[cluster].x += p.x;
+                    sum_centroids[cluster].y += p.y;
+                    sum_centroids[cluster].u += p.u;
+                    sum_centroids[cluster].v += p.v;
+                    sum_centroids[cluster].xp += p.xp;
+                    sum_centroids[cluster].yp += p.yp;
+                    sum_centroids[cluster].o1 += p.o1;
+                    sum_centroids[cluster].o2 += p.o2;
                     counts[cluster]++;
                 }
             }
 
-            // Keep centroids with points
+            // Compute averages and keep centroids with points
             centroids.clear();
             for (int i = 0; i < config_.num_clusters; ++i) {
                 if (counts[i] > 0) {
-                    centroids.push_back(new_centroids[i]);
+                    BilateralPoint8D centroid;
+                    centroid.x = sum_centroids[i].x / counts[i];
+                    centroid.y = sum_centroids[i].y / counts[i];
+                    centroid.u = sum_centroids[i].u / counts[i];
+                    centroid.v = sum_centroids[i].v / counts[i];
+                    centroid.xp = sum_centroids[i].xp / counts[i];
+                    centroid.yp = sum_centroids[i].yp / counts[i];
+                    centroid.o1 = sum_centroids[i].o1 / counts[i];
+                    centroid.o2 = sum_centroids[i].o2 / counts[i];
+                    centroids.push_back(centroid);
                 }
             }
         }
@@ -97,8 +119,22 @@ namespace code {
 
     double BilateralClusterer::gaussianKernel(const BilateralPoint8D& p1,
         const BilateralPoint8D& p2) const {
-        double dist_sq = p1.squaredDistance(p2);
-        return std::exp(-dist_sq / (config_.spatial_sigma * config_.spatial_sigma));
+        // Bilateral kernel: separate spatial and descriptor components (Eqn 11 in paper)
+        // Spatial: (x, y)
+        double spatial_dist_sq = (p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y);
+
+        // Descriptor: (u, v, xp, yp, o1, o2) - motion and appearance
+        double desc_dist_sq = (p1.u - p2.u) * (p1.u - p2.u) +
+                              (p1.v - p2.v) * (p1.v - p2.v) +
+                              (p1.xp - p2.xp) * (p1.xp - p2.xp) +
+                              (p1.yp - p2.yp) * (p1.yp - p2.yp) +
+                              (p1.o1 - p2.o1) * (p1.o1 - p2.o1) +
+                              (p1.o2 - p2.o2) * (p1.o2 - p2.o2);
+
+        double spatial_sigma_sq = config_.spatial_sigma * config_.spatial_sigma;
+        double desc_sigma_sq = config_.descriptor_sigma * config_.descriptor_sigma;
+
+        return std::exp(-spatial_dist_sq / (2.0 * spatial_sigma_sq) - desc_dist_sq / (2.0 * desc_sigma_sq));
     }
 
     void BilateralClusterer::initializeCentroids(const std::vector<BilateralPoint8D>& points,

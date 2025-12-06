@@ -38,12 +38,13 @@ namespace code {
             const cv::Mat& desc1, const cv::Mat& desc2);
 
         RegressionResult step3_likelihoodRegression(
-            const std::vector<FeatureMatch>& matches,
+            const std::vector<BilateralPoint8D>& normalized_points,
             std::vector<BilateralPoint8D>& centroids);
 
         std::vector<RegressionResult> step4_affineRegression(
             const std::vector<FeatureMatch>& filtered_matches,
-            const std::vector<BilateralPoint8D>& centroids);
+            const std::vector<BilateralPoint8D>& centroids,
+            const NormalizationParams& norm_params);
 
         std::vector<FeatureMatch> step5_finalFiltering(
             const std::vector<cv::KeyPoint>& kpts1,
@@ -51,7 +52,8 @@ namespace code {
             const cv::Mat& desc1, const cv::Mat& desc2,
             const RegressionResult& likelihood_result,
             const std::vector<RegressionResult>& affine_results,
-            const std::vector<BilateralPoint8D>& centroids);
+            const std::vector<BilateralPoint8D>& centroids,
+            const NormalizationParams& norm_params);
 
         // Helper functions
         std::vector<BilateralPoint8D> extractBilateralPoints(

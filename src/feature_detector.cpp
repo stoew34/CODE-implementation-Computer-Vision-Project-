@@ -29,7 +29,8 @@ namespace code {
             config_.sigma);
 
         cv::Mat descriptors;
-        detector->compute(image, keypoints, descriptors);
+        std::vector<cv::KeyPoint> keypoints_copy = keypoints;  // OpenCV's compute() requires non-const
+        detector->compute(image, keypoints_copy, descriptors);
 
         return descriptors;
     }

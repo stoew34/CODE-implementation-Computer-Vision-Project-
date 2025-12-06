@@ -29,14 +29,18 @@ namespace code {
 
         // Step 3: Likelihood regression (Sec 3)
         std::vector<BilateralPoint8D> centroids;
-        auto likelihood_result = step3_likelihoodRegression(selected_matches, centroids);
+        auto bilateral_points = extractBilateralPoints(selected_matches);
+
+        // CRITICAL: Store normalization parameters for reuse everywhere
+        NormalizationParams norm_params = feature_utils_->normalizeBilateralPoints(bilateral_points);
+
+        auto likelihood_result = step3_likelihoodRegression(bilateral_points, centroids);
 
         if (!likelihood_result.converged) {
             logWarning("Likelihood regression did not converge");
         }
 
-        // Apply likelihood filter
-        auto bilateral_points = extractBilateralPoints(selected_matches);
+        // Apply likelihood filter (points already normalized above)
         auto likelihood_inliers = likelihood_regression_->filterByLikelihood(
             bilateral_points, likelihood_result, centroids);
 
@@ -49,8 +53,14 @@ namespace code {
 
         logInfo("Matches after likelihood filter: " + std::to_string(filtered_matches.size()));
 
+        // Early return if no matches pass likelihood filter
+        if (filtered_matches.empty()) {
+            logWarning("No matches passed likelihood filter");
+            return {};
+        }
+
         // Step 4: Bilaterally varying affine regression
-        auto affine_results = step4_affineRegression(filtered_matches, centroids);
+        auto affine_results = step4_affineRegression(filtered_matches, centroids, norm_params);
 
         bool all_converged = true;
         for (const auto& result : affine_results) {
@@ -65,7 +75,7 @@ namespace code {
         }
 
         auto final_matches = step5_finalFiltering(kpts1, kpts2, desc1, desc2,
-            likelihood_result, affine_results, centroids);
+            likelihood_result, affine_results, centroids, norm_params);
 
         logInfo("Final coherent matches: " + std::to_string(final_matches.size()));
 
@@ -95,26 +105,27 @@ namespace code {
     }
 
     RegressionResult CodePipeline::step3_likelihoodRegression(
-        const std::vector<FeatureMatch>& matches,
+        const std::vector<BilateralPoint8D>& normalized_points,
         std::vector<BilateralPoint8D>& centroids) {
 
-        auto bilateral_points = extractBilateralPoints(matches);
-        feature_utils_->normalizeBilateralPoints(bilateral_points);
-
+        // Points are already normalized - use them directly
         // Cluster points for accelerated regression (Sec 2.2)
-        centroids = clusterer_->cluster(bilateral_points);
+        centroids = clusterer_->cluster(normalized_points);
         logInfo("Clustered into " + std::to_string(centroids.size()) + " centroids");
 
         // Compute likelihood function (Eqn 21)
-        return likelihood_regression_->computeLikelihoodFunction(bilateral_points);
+        return likelihood_regression_->computeLikelihoodFunction(normalized_points);
     }
 
     std::vector<RegressionResult> CodePipeline::step4_affineRegression(
         const std::vector<FeatureMatch>& filtered_matches,
-        const std::vector<BilateralPoint8D>& centroids) {
+        const std::vector<BilateralPoint8D>& centroids,
+        const NormalizationParams& norm_params) {
 
         auto bilateral_points = extractBilateralPoints(filtered_matches);
-        feature_utils_->normalizeBilateralPoints(bilateral_points);
+
+        // Use SAME normalization as step3
+        feature_utils_->applyNormalization(bilateral_points, norm_params);
 
         // Compute bilaterally varying affine models (Eqns 24-27)
         return affine_regression_->computeAffineModels(bilateral_points, centroids);
@@ -126,26 +137,40 @@ namespace code {
         const cv::Mat& desc1, const cv::Mat& desc2,
         const RegressionResult& likelihood_result,
         const std::vector<RegressionResult>& affine_results,
-        const std::vector<BilateralPoint8D>& centroids) {
+        const std::vector<BilateralPoint8D>& centroids,
+        const NormalizationParams& norm_params) {
 
         auto all_matches = feature_utils_->matchDescriptors(desc1, desc2,
             config_.final_threshold);
         auto feature_matches = feature_utils_->convertMatches(kpts1, kpts2, all_matches);
+
+        logInfo("Step5: Re-matched features: " + std::to_string(feature_matches.size()));
 
         if (feature_matches.empty()) {
             return {};
         }
 
         auto bilateral_points = extractBilateralPoints(feature_matches);
-        feature_utils_->normalizeBilateralPoints(bilateral_points);
+
+        // CRITICAL: Use the SAME normalization parameters from training
+        feature_utils_->applyNormalization(bilateral_points, norm_params);
 
         // Apply likelihood filter
         auto likelihood_inliers = likelihood_regression_->filterByLikelihood(
             bilateral_points, likelihood_result, centroids);
 
+        int likelihood_count = std::count(likelihood_inliers.begin(), likelihood_inliers.end(), true);
+        logInfo("Step5: After likelihood filter: " + std::to_string(likelihood_count));
+        logInfo("Step5: bilateral_points size: " + std::to_string(bilateral_points.size()));
+        logInfo("Step5: centroids size: " + std::to_string(centroids.size()));
+        logInfo("Step5: affine_results size: " + std::to_string(affine_results.size()));
+
         // Apply spatial consistency filter
         auto spatial_inliers = affine_regression_->filterBySpatialConsistency(
             bilateral_points, affine_results, centroids);
+
+        int spatial_count = std::count(spatial_inliers.begin(), spatial_inliers.end(), true);
+        logInfo("Step5: After spatial filter: " + std::to_string(spatial_count));
 
         // Combine filters
         std::vector<FeatureMatch> final_matches;
@@ -154,6 +179,8 @@ namespace code {
                 final_matches.push_back(feature_matches[i]);
             }
         }
+
+        logInfo("Step5: After combining filters: " + std::to_string(final_matches.size()));
 
         return final_matches;
     }

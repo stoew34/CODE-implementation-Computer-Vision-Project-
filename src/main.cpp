@@ -4,7 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include <chrono>
 
-int main(int argc, char** argv[]) {
+int main(int argc, char** argv) {
     using namespace std::chrono;
 
     code::initLogging("CODE Feature Correspondence");
@@ -31,9 +31,41 @@ int main(int argc, char** argv[]) {
         code::logInfo("Image 1: " + std::to_string(img1.cols) + "x" + std::to_string(img1.rows));
         code::logInfo("Image 2: " + std::to_string(img2.cols) + "x" + std::to_string(img2.rows));
 
-        // Configure CODE pipeline
+        // Resize images to similar resolution for better matching
+        double scale1 = std::sqrt(img1.cols * img1.rows);
+        double scale2 = std::sqrt(img2.cols * img2.rows);
+        double max_scale = 2000.0;  // Target image diagonal ~2000 pixels
+
+        if (scale1 > max_scale) {
+            double factor = max_scale / scale1;
+            cv::resize(img1, img1, cv::Size(), factor, factor, cv::INTER_AREA);
+            code::logInfo("Resized image 1 to: " + std::to_string(img1.cols) + "x" + std::to_string(img1.rows));
+        }
+        if (scale2 > max_scale) {
+            double factor = max_scale / scale2;
+            cv::resize(img2, img2, cv::Size(), factor, factor, cv::INTER_AREA);
+            code::logInfo("Resized image 2 to: " + std::to_string(img2.cols) + "x" + std::to_string(img2.rows));
+        }
+
+        // Configure CODE pipeline with corrected normalization:
+        // CODE philosophy: Many initial candidates, regression filters bad matches
         code::Config config;
-        config.max_features = 2000;  // Reduced for testing
+        config.max_features = 2000;
+
+        // Phase 1: Generate MANY initial candidates (permissive Lowe's ratio)
+        config.initial_threshold = 0.9f;  // Permissive for viewpoint/rotation variation
+        config.final_threshold = 0.9f;    // Also permissive in final step
+
+        // Phase 2: Bilateral clustering - balance between local and global structure
+        config.num_clusters = 200;  // Many clusters for fine-grained local models
+        config.spatial_sigma = 1.0;  // Standard for normalized coordinates
+        config.descriptor_sigma = 0.5;  // Tighter to group similar motions/orientations
+
+        // Phase 3: Regression and filtering - trust the bilaterally-varying model
+        config.likelihood_threshold = 0.55;  // Moderately permissive
+        config.spatial_threshold = 1.0;  // Accept all bilaterally-consistent matches
+        config.lambda = 0.03;  // Low regularization = better local fitting
+        config.huber_epsilon = 0.25;  // Robust to outliers
 
         code::CodePipeline pipeline(config);
 
@@ -56,10 +88,15 @@ int main(int argc, char** argv[]) {
             std::vector<cv::KeyPoint> kpts1, kpts2;
             std::vector<cv::DMatch> cv_matches;
 
-            for (const auto& match : matches) {
-                kpts1.push_back(match.kp1);
-                kpts2.push_back(match.kp2);
-                cv_matches.push_back(match.match);
+            for (size_t i = 0; i < matches.size(); ++i) {
+                kpts1.push_back(matches[i].kp1);
+                kpts2.push_back(matches[i].kp2);
+                // Create new DMatch with correct indices for our vectors
+                cv::DMatch dm;
+                dm.queryIdx = i;
+                dm.trainIdx = i;
+                dm.distance = matches[i].match.distance;
+                cv_matches.push_back(dm);
             }
 
             cv::Mat img_matches;

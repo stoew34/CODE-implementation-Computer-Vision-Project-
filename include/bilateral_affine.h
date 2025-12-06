@@ -51,7 +51,9 @@ namespace code {
             ceres::Problem& problem,
             const Eigen::MatrixXd& basis_matrix,
             const std::vector<BilateralPoint8D>& points,
-            Eigen::MatrixXd& affine_weights,  // 6 x M matrix
+            std::vector<double>& weights_param0,
+            std::vector<double>& weights_param1,
+            std::vector<double>& weights_param2,
             const Eigen::MatrixXd& kernel_matrix,
             int direction);  // 0 for X, 1 for Y
     };

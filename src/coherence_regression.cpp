@@ -2,6 +2,32 @@
 
 namespace code {
 
+    // Helper cost function classes
+    struct BasisTermCost {
+        double basis_val, target_val;
+
+        BasisTermCost(double basis, double target)
+            : basis_val(basis), target_val(target) {
+        }
+
+        bool operator()(const double* const w, double* residual) const {
+            residual[0] = target_val - basis_val * w[0];
+            return true;
+        }
+    };
+
+    struct RegularizationCost {
+        double weight;
+
+        explicit RegularizationCost(double w) : weight(w) {}
+
+        bool operator()(const double* const w1, const double* const w2,
+            double* residual) const {
+            residual[0] = weight * (w1[0] - w2[0]);
+            return true;
+        }
+    };
+
     CoherenceRegression::CoherenceRegression(const Config& config)
         : config_(config), clusterer_(config) {
     }
@@ -64,7 +90,7 @@ namespace code {
         const RegressionResult& result,
         const std::vector<BilateralPoint8D>& centroids) {
 
-        if (centroids.empty() || result.weights.size() != centroids.size()) {
+        if (centroids.empty() || static_cast<size_t>(result.weights.size()) != centroids.size()) {
             return 0.0;
         }
 
@@ -120,7 +146,7 @@ namespace code {
         }
 
         for (int i = 0; i < m; ++i) {
-            for (int j = i; j < m; ++j) {
+            for (int j = i + 1; j < m; ++j) {  // Skip i == j to avoid duplicate parameters
                 if (kernel_matrix(i, j) != 0) {
                     double reg_weight = config_.lambda * kernel_matrix(i, j);
 
@@ -136,31 +162,5 @@ namespace code {
             }
         }
     }
-
-    // Helper cost function classes
-    struct BasisTermCost {
-        double basis_val, target_val;
-
-        BasisTermCost(double basis, double target)
-            : basis_val(basis), target_val(target) {
-        }
-
-        bool operator()(const double* const w, double* residual) const {
-            residual[0] = target_val - basis_val * w[0];
-            return true;
-        }
-    };
-
-    struct RegularizationCost {
-        double weight;
-
-        explicit RegularizationCost(double w) : weight(w) {}
-
-        bool operator()(const double* const w1, const double* const w2,
-            double* residual) const {
-            residual[0] = weight * (w1[0] - w2[0]);
-            return true;
-        }
-    };
 
 } // namespace code

@@ -6,10 +6,12 @@
 #define NOMINMAX
 #define _USE_MATH_DEFINES
 
-// Windows cleanup
+// Platform-specific cleanup
+#ifdef _WIN32
 #include <windows.h>
 #undef min
 #undef max
+#endif
 
 // Standard includes
 #include <iostream>
