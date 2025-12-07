@@ -20,8 +20,13 @@ int main(int argc, char** argv) {
 
         // Load images
         code::logInfo("Loading images...");
-        cv::Mat img1 = cv::imread(argv[1], cv::IMREAD_GRAYSCALE);
-        cv::Mat img2 = cv::imread(argv[2], cv::IMREAD_GRAYSCALE);
+        cv::Mat img1_color = cv::imread(argv[1], cv::IMREAD_COLOR);
+        cv::Mat img2_color = cv::imread(argv[2], cv::IMREAD_COLOR);
+
+        // Convert to grayscale for SIFT (SIFT uses intensity gradients)
+        cv::Mat img1, img2;
+        cv::cvtColor(img1_color, img1, cv::COLOR_BGR2GRAY);
+        cv::cvtColor(img2_color, img2, cv::COLOR_BGR2GRAY);
 
         if (img1.empty() || img2.empty()) {
             code::logError("Cannot read images. Check file paths.");
@@ -39,11 +44,13 @@ int main(int argc, char** argv) {
         if (scale1 > max_scale) {
             double factor = max_scale / scale1;
             cv::resize(img1, img1, cv::Size(), factor, factor, cv::INTER_AREA);
+            cv::resize(img1_color, img1_color, cv::Size(), factor, factor, cv::INTER_AREA);
             code::logInfo("Resized image 1 to: " + std::to_string(img1.cols) + "x" + std::to_string(img1.rows));
         }
         if (scale2 > max_scale) {
             double factor = max_scale / scale2;
             cv::resize(img2, img2, cv::Size(), factor, factor, cv::INTER_AREA);
+            cv::resize(img2_color, img2_color, cv::Size(), factor, factor, cv::INTER_AREA);
             code::logInfo("Resized image 2 to: " + std::to_string(img2.cols) + "x" + std::to_string(img2.rows));
         }
 
@@ -100,7 +107,8 @@ int main(int argc, char** argv) {
             }
 
             cv::Mat img_matches;
-            cv::drawMatches(img1, kpts1, img2, kpts2, cv_matches, img_matches,
+            // Draw matches on color images for better visualization
+            cv::drawMatches(img1_color, kpts1, img2_color, kpts2, cv_matches, img_matches,
                 cv::Scalar::all(-1), cv::Scalar::all(-1),
                 std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 

@@ -21,14 +21,46 @@ namespace code {
         cv::Mat& descriptors) {
         detector_->detectAndCompute(image, cv::noArray(), keypoints, descriptors);
 
-        // Sort by response (feature strength) and keep the best
+        // Apply spatial weighting to prioritize features in regions of interest
+        // This helps focus on foreground objects (like cars) rather than background (like walls)
         if (keypoints.size() > static_cast<size_t>(config_.max_features)) {
-            // Create indices sorted by response (descending)
+            float img_height = static_cast<float>(image.rows);
+            float img_width = static_cast<float>(image.cols);
+            float center_x = img_width * 0.5f;
+
+            // Compute weighted scores for each keypoint
+            std::vector<float> weighted_scores(keypoints.size());
+            for (size_t i = 0; i < keypoints.size(); ++i) {
+                const cv::KeyPoint& kp = keypoints[i];
+
+                // Vertical position weight: prioritize center and lower regions
+                // Upper 30% of image gets reduced weight (0.3x)
+                // Middle 40% gets full weight (1.0x)
+                // Lower 30% gets boosted weight (1.5x)
+                float vertical_weight = 1.0f;
+                float y_ratio = kp.pt.y / img_height;
+                if (y_ratio < 0.3f) {
+                    vertical_weight = 0.3f;  // Upper region (background/wall)
+                } else if (y_ratio < 0.7f) {
+                    vertical_weight = 1.0f;  // Middle region
+                } else {
+                    vertical_weight = 1.5f;  // Lower region (foreground objects)
+                }
+
+                // Horizontal position weight: slightly prioritize center
+                float dx = std::abs(kp.pt.x - center_x) / (img_width * 0.5f);
+                float horizontal_weight = 1.0f - 0.2f * dx;  // Center=1.0, edges=0.8
+
+                // Combined weighted score
+                weighted_scores[i] = kp.response * vertical_weight * horizontal_weight;
+            }
+
+            // Create indices sorted by weighted score (descending)
             std::vector<size_t> indices(keypoints.size());
             std::iota(indices.begin(), indices.end(), 0);
             std::sort(indices.begin(), indices.end(),
-                [&keypoints](size_t a, size_t b) {
-                    return keypoints[a].response > keypoints[b].response;
+                [&weighted_scores](size_t a, size_t b) {
+                    return weighted_scores[a] > weighted_scores[b];
                 });
 
             // Keep only the strongest features
