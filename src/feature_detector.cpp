@@ -1,5 +1,11 @@
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #include "feature_detector.h"
-#include <opencv2/xfeatures2d.hpp>
+#include <opencv2/features2d.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>  
 #include <cmath>
 
 namespace code {

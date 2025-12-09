@@ -1,0 +1,15 @@
+﻿  bilateral_affine.cpp
+  bilateral_clusterer.cpp
+  code_pipeline.cpp
+  coherence_regression.cpp
+  feature_detector.cpp
+  feature_matcher.cpp
+  feature_utils.cpp
+  main.cpp
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+  All 3077 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  CODE_Project_rebuild.vcxproj -> E:\Computer Vision\CODE_Project_rebuild\x64\Release\CODE_Project_rebuild.exe
+  'pwsh.exe' is not recognized as an internal or external command,
+  operable program or batch file.

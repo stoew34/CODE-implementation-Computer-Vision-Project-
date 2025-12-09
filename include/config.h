@@ -4,9 +4,9 @@ namespace code {
 
     struct Config {
         // Feature detection (A-SIFT)
-        int max_features = 2000;           // Balanced for speed and coverage
-        float contrast_threshold = 0.02f;  // Even lower for more candidates
-        float edge_threshold = 15.0f;      // Higher to reject edge-like features
+        int max_features = 0;           // Balanced for speed and coverage
+        float contrast_threshold = 0.01f;  // Even lower for more candidates
+        float edge_threshold = 10.0f;      // Higher to reject edge-like features
         float sigma = 1.6f;
 
         // A-SIFT simulation parameters
@@ -15,7 +15,7 @@ namespace code {
         double tilt_range = 70.0;          // Max tilt angle in degrees
 
         // Matching thresholds (Fig 6)
-        float initial_threshold = 0.75f;  // More permissive to find more candidates
+        float initial_threshold = 0.85f;  // More permissive to find more candidates
         float final_threshold = 0.80f;    // Balanced for quality matches     
 
         // Bilateral clustering (Sec 2.2)

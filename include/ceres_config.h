@@ -1,18 +1,6 @@
 #pragma once
 
-// ========== COMPLETELY DISABLE GLOG ==========
-#define CERES_NO_GLOG 1
-#define GLOG_NO_ABBREVIATED_SEVERITIES 1
-#define NOMINMAX
-#define _USE_MATH_DEFINES
-
-// Platform-specific cleanup
-#ifdef _WIN32
-#include <windows.h>
-#undef min
-#undef max
-#endif
-
+#include "glog_fixes.h"
 // Standard includes
 #include <iostream>
 #include <vector>

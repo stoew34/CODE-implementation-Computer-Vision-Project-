@@ -1,5 +1,6 @@
-#include "code_pipeline.h"
+#include "glog_fixes.h"
 #include "ceres_config.h"
+#include "code_pipeline.h"
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <chrono>
@@ -57,14 +58,14 @@ int main(int argc, char** argv) {
         // Configure CODE pipeline with corrected normalization:
         // CODE philosophy: Many initial candidates, regression filters bad matches
         code::Config config;
-        config.max_features = 2000;
+        config.max_features = 8000;
 
         // Phase 1: Generate MANY initial candidates (permissive Lowe's ratio)
         config.initial_threshold = 0.9f;  // Permissive for viewpoint/rotation variation
         config.final_threshold = 0.9f;    // Also permissive in final step
 
         // Phase 2: Bilateral clustering - balance between local and global structure
-        config.num_clusters = 200;  // Many clusters for fine-grained local models
+        config.num_clusters = 1000;  // Many clusters for fine-grained local models
         config.spatial_sigma = 1.0;  // Standard for normalized coordinates
         config.descriptor_sigma = 0.5;  // Tighter to group similar motions/orientations
 

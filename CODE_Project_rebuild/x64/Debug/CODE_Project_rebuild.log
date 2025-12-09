@@ -1,0 +1,33 @@
+﻿  bilateral_affine.cpp
+E:\vcpkg\installed\x64-windows\include\glog\logging.h(60,1): error C1189: #error:  <glog/logging.h> was not included correctly. See the documentation for how to consume the library.
+  (compiling source file '../../../CODE-implementation-Computer-Vision-Project-/src/bilateral_affine.cpp')
+  
+  bilateral_clusterer.cpp
+E:\vcpkg\installed\x64-windows\include\glog\logging.h(60,1): error C1189: #error:  <glog/logging.h> was not included correctly. See the documentation for how to consume the library.
+  (compiling source file '../../../CODE-implementation-Computer-Vision-Project-/src/bilateral_clusterer.cpp')
+  
+  code_pipeline.cpp
+E:\vcpkg\installed\x64-windows\include\glog\logging.h(60,1): error C1189: #error:  <glog/logging.h> was not included correctly. See the documentation for how to consume the library.
+  (compiling source file '../../../CODE-implementation-Computer-Vision-Project-/src/code_pipeline.cpp')
+  
+  coherence_regression.cpp
+E:\vcpkg\installed\x64-windows\include\glog\logging.h(60,1): error C1189: #error:  <glog/logging.h> was not included correctly. See the documentation for how to consume the library.
+  (compiling source file '../../../CODE-implementation-Computer-Vision-Project-/src/coherence_regression.cpp')
+  
+  feature_detector.cpp
+E:\vcpkg\installed\x64-windows\include\glog\logging.h(60,1): error C1189: #error:  <glog/logging.h> was not included correctly. See the documentation for how to consume the library.
+  (compiling source file '../../../CODE-implementation-Computer-Vision-Project-/src/feature_detector.cpp')
+  
+  feature_matcher.cpp
+E:\vcpkg\installed\x64-windows\include\glog\logging.h(60,1): error C1189: #error:  <glog/logging.h> was not included correctly. See the documentation for how to consume the library.
+  (compiling source file '../../../CODE-implementation-Computer-Vision-Project-/src/feature_matcher.cpp')
+  
+  feature_utils.cpp
+E:\vcpkg\installed\x64-windows\include\glog\logging.h(60,1): error C1189: #error:  <glog/logging.h> was not included correctly. See the documentation for how to consume the library.
+  (compiling source file '../../../CODE-implementation-Computer-Vision-Project-/src/feature_utils.cpp')
+  
+  main.cpp
+E:\vcpkg\installed\x64-windows\include\glog\logging.h(60,1): error C1189: #error:  <glog/logging.h> was not included correctly. See the documentation for how to consume the library.
+  (compiling source file '../../../CODE-implementation-Computer-Vision-Project-/src/main.cpp')
+  
+  Generating Code...
